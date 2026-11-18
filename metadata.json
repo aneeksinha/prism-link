@@ -1,0 +1,6 @@
+{
+  "name": "PrismLink",
+  "description": "Instant, account-free URL shortener for any link type with frosted glass design, privacy-first architecture, and built-in link safety inspection.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
