@@ -1,0 +1,137 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net (Default Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string
+        && id.size() >= 3
+        && id.size() <= 36
+        && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isReservedLinkId(id) {
+      return id.lower() in [
+        'api',
+        'about',
+        'privacy',
+        'security',
+        's',
+        'assets',
+        'src',
+        'health',
+        'favicon',
+        'robots',
+        'sitemap'
+      ];
+    }
+
+    function isAllowedProtocol(protocol, originalUrl) {
+      return protocol is string
+        && protocol.size() >= 1
+        && protocol.size() <= 32
+        && protocol.matches('^[a-zA-Z][a-zA-Z0-9+.\\-]*$')
+        && !(protocol.lower() in [
+          'javascript',
+          'data',
+          'vbscript',
+          'jscript',
+          'livescript',
+          'mocha',
+          'file'
+        ])
+        && originalUrl is string
+        && originalUrl.size() >= 1
+        && originalUrl.size() <= 4096
+        && !originalUrl.trim().lower().matches('^(javascript|data|vbscript|jscript|livescript|mocha|file):.*');
+    }
+
+    function hasExactLinkKeys(data) {
+      return data.keys().hasAll([
+        'code',
+        'shortPath',
+        'originalUrl',
+        'protocol',
+        'protocolLabel',
+        'clicks',
+        'createdAt',
+        'lastAccessedAt'
+      ]) && data.keys().hasOnly([
+        'code',
+        'shortPath',
+        'originalUrl',
+        'protocol',
+        'protocolLabel',
+        'clicks',
+        'createdAt',
+        'lastAccessedAt'
+      ]);
+    }
+
+    function isValidShortenedLinkShape(data) {
+      return hasExactLinkKeys(data)
+        && data.code is string
+        && data.code.size() >= 3
+        && data.code.size() <= 36
+        && data.code.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.shortPath is string
+        && data.shortPath.size() >= 6
+        && data.shortPath.size() <= 40
+        && data.shortPath == '/s/' + data.code
+        && isAllowedProtocol(data.protocol, data.originalUrl)
+        && data.protocolLabel is string
+        && data.protocolLabel.size() >= 1
+        && data.protocolLabel.size() <= 64
+        && data.clicks is int
+        && data.clicks >= 0
+        && data.createdAt is timestamp
+        && (data.lastAccessedAt == null || data.lastAccessedAt is timestamp);
+    }
+
+    function isClickIncrementAction() {
+      return incoming().diff(existing()).affectedKeys().hasOnly(['clicks', 'lastAccessedAt'])
+        && incoming().code == existing().code
+        && incoming().shortPath == existing().shortPath
+        && incoming().originalUrl == existing().originalUrl
+        && incoming().protocol == existing().protocol
+        && incoming().protocolLabel == existing().protocolLabel
+        && incoming().createdAt == existing().createdAt
+        && incoming().clicks is int
+        && incoming().clicks == existing().clicks + 1
+        && incoming().lastAccessedAt == request.time;
+    }
+
+    match /links/{linkId} {
+      // Single-link resolution by exact short code only; block bulk listing/scraping
+      allow get: if isValidId(linkId);
+      allow list: if false;
+
+      // Public account-free creation with strict key, protocol, ID, and server timestamp validation
+      allow create: if isValidId(linkId)
+        && !isReservedLinkId(linkId)
+        && isValidShortenedLinkShape(incoming())
+        && linkId == incoming().code.lower()
+        && incoming().clicks == 0
+        && incoming().createdAt == request.time
+        && incoming().lastAccessedAt == null;
+
+      // Updates are restricted solely to +1 click counter increments with server timestamp
+      allow update: if isValidId(linkId)
+        && isValidShortenedLinkShape(incoming())
+        && isClickIncrementAction();
+
+      allow delete: if false;
+    }
+  }
+}

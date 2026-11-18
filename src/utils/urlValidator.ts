@@ -1,4 +1,4 @@
-import type { SafetyCheckItem, SafetyInspectionResult } from '../types';
+import type { SafetyCheckItem, SafetyInspectionResult } from '../types.ts';
 
 export const MAX_URL_LENGTH = 4096;
 
@@ -14,6 +14,7 @@ const BLOCKED_SCHEMES = new Set([
 
 const RESERVED_ALIASES = new Set([
   'api',
+  'about',
   'privacy',
   'security',
   's',
@@ -136,25 +137,31 @@ export function parseAndValidateUrl(
       candidate = `${isLocal ? 'http' : 'https'}://${trimmed}`;
     }
   } else {
-    // No scheme provided — normalize bare domains and localhost
-    if (/\s/.test(trimmed)) {
-      return {
-        valid: false,
-        normalizedUrl: null,
-        protocol: '',
-        protocolLabel: '',
-        host: '',
-        error: 'URLs without a scheme cannot contain spaces.',
-      };
-    }
+    // Normalize bare email addresses (e.g. team@example.com) to mailto:
+    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      candidate = `mailto:${trimmed}`;
+    } else {
+      // No scheme provided — normalize bare domains and localhost
+      const hostSegment = trimmed.split(/[/?#]/)[0];
+      if (/\s/.test(hostSegment)) {
+        return {
+          valid: false,
+          normalizedUrl: null,
+          protocol: '',
+          protocolLabel: '',
+          host: '',
+          error: 'Domain names cannot contain spaces.',
+        };
+      }
 
-    const lower = trimmed.toLowerCase();
-    const isLocal =
-      lower === 'localhost' ||
-      lower.startsWith('localhost/') ||
-      lower.startsWith('127.0.0.1') ||
-      lower.startsWith('[::1]');
-    candidate = `${isLocal ? 'http' : 'https'}://${trimmed}`;
+      const lower = trimmed.toLowerCase();
+      const isLocal =
+        lower === 'localhost' ||
+        lower.startsWith('localhost/') ||
+        lower.startsWith('127.0.0.1') ||
+        lower.startsWith('[::1]');
+      candidate = `${isLocal ? 'http' : 'https'}://${trimmed}`;
+    }
   }
 
   let parsed: URL;

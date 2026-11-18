@@ -20,6 +20,15 @@ test('normalizes bare domains and host:port inputs', () => {
   assert.equal(bare.valid, true);
   assert.equal(bare.normalizedUrl, 'https://example.com/launch');
 
+  const pathSpace = parseAndValidateUrl('example.com/search?q=liquid glass');
+  assert.equal(pathSpace.valid, true);
+  assert.equal(pathSpace.normalizedUrl, 'https://example.com/search?q=liquid%20glass');
+
+  const bareEmail = parseAndValidateUrl('team@prismlink.example');
+  assert.equal(bareEmail.valid, true);
+  assert.equal(bareEmail.protocol, 'mailto');
+  assert.equal(bareEmail.normalizedUrl, 'mailto:team@prismlink.example');
+
   const localPort = parseAndValidateUrl('localhost:8080/health');
   assert.equal(localPort.valid, true);
   assert.equal(localPort.normalizedUrl, 'http://localhost:8080/health');
@@ -85,6 +94,9 @@ test('validates optional custom aliases and rejects reserved words', () => {
 
   const reserved = validateCustomAlias('privacy');
   assert.equal(reserved.valid, false);
+
+  const reservedAbout = validateCustomAlias('about');
+  assert.equal(reservedAbout.valid, false);
 });
 
 test('inspectUrlSafety flags embedded credentials and reports safety checks', () => {

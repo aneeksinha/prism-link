@@ -14,8 +14,10 @@ import { parseAndValidateUrl } from '../utils/urlValidator';
 
 interface ShortenerWorkspaceProps {
   inputRef: RefObject<HTMLInputElement | null>;
+  recentLinks: ShortenedLink[];
   onLinkCreated: (link: ShortenedLink) => void;
   onOpenQr: (link: ShortenedLink) => void;
+  onLinkOpened: () => void;
 }
 
 const SAMPLE_URLS = [
@@ -27,8 +29,10 @@ const SAMPLE_URLS = [
 
 export function ShortenerWorkspace({
   inputRef,
+  recentLinks,
   onLinkCreated,
   onOpenQr,
+  onLinkOpened,
 }: ShortenerWorkspaceProps) {
   const [urlInput, setUrlInput] = useState('');
   const [customAlias, setCustomAlias] = useState('');
@@ -45,8 +49,17 @@ export function ShortenerWorkspace({
     return res.protocolLabel;
   }, [urlInput]);
 
-  const latestShortUrl = latestLink
-    ? `${window.location.origin}${latestLink.shortPath}`
+  const syncedLatestLink = useMemo(() => {
+    if (!latestLink) return null;
+    return (
+      recentLinks.find(
+        (item) => item.code.toLowerCase() === latestLink.code.toLowerCase()
+      ) ?? latestLink
+    );
+  }, [latestLink, recentLinks]);
+
+  const latestShortUrl = syncedLatestLink
+    ? `${window.location.origin}${syncedLatestLink.shortPath}`
     : '';
 
   const handleCopy = async (text: string) => {
@@ -152,7 +165,7 @@ export function ShortenerWorkspace({
                     setUrlInput(e.target.value);
                     if (errorMsg) setErrorMsg(null);
                   }}
-                  placeholder="Paste any URL, email, phone, or deep link"
+                  placeholder="Paste URL, email, phone, or deep link"
                   className="liquid-input min-h-[48px] w-full rounded-2xl pl-10 pr-4 text-sm text-[#f5f4f0] placeholder:text-slate-500 sm:text-base"
                 />
               </div>
@@ -266,9 +279,9 @@ export function ShortenerWorkspace({
 
         {/* Instant Result Liquid Glass Card */}
         <AnimatePresence>
-          {latestLink && (
+          {syncedLatestLink && (
             <motion.div
-              key={latestLink.code}
+              key={syncedLatestLink.code}
               initial={{ opacity: 0, y: 10, scale: 0.99 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -6 }}
@@ -281,18 +294,24 @@ export function ShortenerWorkspace({
                   <div className="flex flex-wrap items-center gap-x-2 text-xs text-slate-400">
                     <span className="font-semibold text-emerald-400">Ready to share</span>
                     <span aria-hidden="true">·</span>
-                    <span>{latestLink.protocolLabel}</span>
+                    <span>{syncedLatestLink.protocolLabel}</span>
+                    <span aria-hidden="true">·</span>
+                    <span className="font-mono tabular-nums text-slate-200">
+                      {syncedLatestLink.clicks}{' '}
+                      {syncedLatestLink.clicks === 1 ? 'click' : 'clicks'}
+                    </span>
                   </div>
                   <a
-                    href={latestLink.shortPath}
+                    href={syncedLatestLink.shortPath}
                     target="_blank"
                     rel="noopener noreferrer"
+                    onClick={onLinkOpened}
                     className="mt-1 block truncate font-mono text-base font-medium text-amber-300 hover:underline sm:text-lg"
                   >
                     {latestShortUrl}
                   </a>
                   <p className="mt-1 truncate text-xs text-slate-400">
-                    {latestLink.originalUrl}
+                    {syncedLatestLink.originalUrl}
                   </p>
                 </div>
 
@@ -317,8 +336,8 @@ export function ShortenerWorkspace({
 
                   <button
                     type="button"
-                    onClick={() => onOpenQr(latestLink)}
-                    aria-label={`Show QR code for ${latestLink.code}`}
+                    onClick={() => onOpenQr(syncedLatestLink)}
+                    aria-label={`Show QR code for ${syncedLatestLink.code}`}
                     className="liquid-btn-glass inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-2xl px-3.5 py-2 text-xs font-semibold whitespace-nowrap cursor-pointer"
                   >
                     <QrCode className="h-3.5 w-3.5" />
@@ -326,10 +345,11 @@ export function ShortenerWorkspace({
                   </button>
 
                   <a
-                    href={latestLink.shortPath}
+                    href={syncedLatestLink.shortPath}
                     target="_blank"
                     rel="noopener noreferrer"
-                    aria-label={`Open shortened link ${latestLink.code}`}
+                    onClick={onLinkOpened}
+                    aria-label={`Open shortened link ${syncedLatestLink.code}`}
                     className="liquid-btn-glass inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-2xl px-3.5 py-2 text-xs font-semibold whitespace-nowrap"
                   >
                     <ExternalLink className="h-3.5 w-3.5" />

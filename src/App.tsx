@@ -74,16 +74,18 @@ export default function App() {
     }
   }, [recentLinks]);
 
-  // Refresh live click counts from server for saved links
-  useEffect(() => {
-    if (recentLinks.length === 0) return;
-    const codes = recentLinks.map((l) => l.code).join(',');
-    let cancelled = false;
+  const recentLinksRef = useRef<ShortenedLink[]>(recentLinks);
+  recentLinksRef.current = recentLinks;
+
+  const refreshRecentLinks = useCallback(() => {
+    const current = recentLinksRef.current;
+    if (current.length === 0) return;
+    const codes = current.map((l) => l.code).join(',');
 
     fetch(`/api/links?codes=${encodeURIComponent(codes)}`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data: { links?: ShortenedLink[] } | null) => {
-        if (cancelled || !data?.links) return;
+        if (!data?.links) return;
         const serverMap = new Map(
           data.links.map((item) => [item.code.toLowerCase(), item])
         );
@@ -94,11 +96,31 @@ export default function App() {
       .catch(() => {
         // Ignore transient offline refresh failures
       });
+  }, []);
 
-    return () => {
-      cancelled = true;
+  // Refresh live click counts from server on route change, window focus, and tab visibility
+  useEffect(() => {
+    refreshRecentLinks();
+
+    const onFocus = () => refreshRecentLinks();
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshRecentLinks();
+      }
     };
-  }, [route]);
+
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [route, refreshRecentLinks]);
+
+  const handleLinkOpened = useCallback(() => {
+    window.setTimeout(refreshRecentLinks, 700);
+    window.setTimeout(refreshRecentLinks, 2000);
+  }, [refreshRecentLinks]);
 
   const navigateTo = useCallback((target: PageRoute) => {
     if (window.location.pathname !== target) {
@@ -178,13 +200,16 @@ export default function App() {
             >
               <ShortenerWorkspace
                 inputRef={urlInputRef}
+                recentLinks={recentLinks}
                 onLinkCreated={handleLinkCreated}
                 onOpenQr={(link) => setQrLink(link)}
+                onLinkOpened={handleLinkOpened}
               />
               <RecentLinksList
                 links={recentLinks}
                 onRemoveLink={handleRemoveLink}
                 onOpenQr={(link) => setQrLink(link)}
+                onLinkOpened={handleLinkOpened}
               />
               <CapabilitiesGrid onNavigate={navigateTo} />
             </motion.div>

@@ -7,12 +7,14 @@ interface RecentLinksListProps {
   links: ShortenedLink[];
   onRemoveLink: (code: string) => void;
   onOpenQr: (link: ShortenedLink) => void;
+  onLinkOpened: () => void;
 }
 
 export function RecentLinksList({
   links,
   onRemoveLink,
   onOpenQr,
+  onLinkOpened,
 }: RecentLinksListProps) {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
@@ -88,6 +90,7 @@ export function RecentLinksList({
                         href={link.shortPath}
                         target="_blank"
                         rel="noopener noreferrer"
+                        onClick={onLinkOpened}
                         className="mt-1 block truncate font-mono text-sm font-medium text-amber-300 hover:underline sm:text-base"
                       >
                         {fullShortUrl}
@@ -131,6 +134,7 @@ export function RecentLinksList({
                         href={link.shortPath}
                         target="_blank"
                         rel="noopener noreferrer"
+                        onClick={onLinkOpened}
                         aria-label={`Open short link ${link.code}`}
                         className="liquid-btn-glass inline-flex min-h-[40px] min-w-[40px] items-center justify-center rounded-xl"
                       >

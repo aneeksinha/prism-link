@@ -1,0 +1,78 @@
+{
+  "entities": {
+    "ShortenedLink": {
+      "title": "ShortenedLink",
+      "description": "A validated destination link mapped to a unique short code or custom alias, storing only routing metadata and an aggregate click counter.",
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 36,
+          "pattern": "^[a-zA-Z0-9_-]+$",
+          "description": "Case-preserved short code or custom alias."
+        },
+        "shortPath": {
+          "type": "string",
+          "minLength": 6,
+          "maxLength": 40,
+          "pattern": "^/s/[a-zA-Z0-9_-]+$",
+          "description": "Canonical redirect path under /s/:code."
+        },
+        "originalUrl": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096,
+          "description": "Normalized safe destination URI (HTTP, HTTPS, mailto, tel, sms, magnet, ftp, ws, or app deep link)."
+        },
+        "protocol": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "pattern": "^[a-zA-Z][a-zA-Z0-9+.-]*$",
+          "description": "Lowercase URI scheme without trailing colon."
+        },
+        "protocolLabel": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "description": "Human-readable protocol classification."
+        },
+        "clicks": {
+          "type": "integer",
+          "description": "Aggregate redirect count initialized to 0 and incremented atomically by +1."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "maxLength": 64,
+          "description": "Server creation timestamp."
+        },
+        "lastAccessedAt": {
+          "type": "string",
+          "format": "date-time",
+          "maxLength": 64,
+          "description": "Server timestamp of the most recent redirect, or null before first click."
+        }
+      },
+      "required": [
+        "code",
+        "shortPath",
+        "originalUrl",
+        "protocol",
+        "protocolLabel",
+        "clicks",
+        "createdAt",
+        "lastAccessedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/links/{linkId}": {
+      "schema": {
+        "$ref": "#/entities/ShortenedLink"
+      },
+      "description": "Publicly resolvable short link records keyed by lowercase code/alias."
+    }
+  }
+}
